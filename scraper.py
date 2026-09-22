@@ -59,11 +59,19 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(URL, wait_until="networkidle", timeout=60000)
+
+        print("Loading page for the first time...")
+        try:
+            page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(5000)  # give client-side JS time to render
+            print("Initial page load complete.")
+        except Exception as e:
+            print(f"Initial page load failed: {e}")
 
         while True:
             try:
-                page.reload(wait_until="networkidle", timeout=60000)
+                page.reload(wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(3000)
                 elements = page.query_selector_all(SELECTOR)
                 if elements:
                     latest = elements[0].inner_text().strip()
@@ -71,6 +79,8 @@ def main():
                         append_result(latest)
                         print(f"New result logged: {latest}")
                         last_seen = latest
+                    else:
+                        print(f"Checked, no new result (current: {latest}).")
                 else:
                     print("No elements matched SELECTOR — check and update it.")
             except Exception as e:
